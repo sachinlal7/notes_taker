@@ -13,13 +13,13 @@ class DioClient implements ApiClient {
   final NetworkInfo _networkInfo;
 
   @override
-  Future<ApiResponse<Map<String, dynamic>>> get(
+  Future<ApiResponse<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
     RequestCancelToken? cancelToken,
   }) async {
     return _send(
-      () => _dio.get<Map<String, dynamic>>(
+      () => _dio.get<T>(
         path,
         queryParameters: queryParameters,
         cancelToken: _createDioCancelToken(cancelToken),
@@ -28,13 +28,13 @@ class DioClient implements ApiClient {
   }
 
   @override
-  Future<ApiResponse<Map<String, dynamic>>> post(
+  Future<ApiResponse<T>> post<T>(
     String path, {
     Map<String, dynamic>? body,
     RequestCancelToken? cancelToken,
   }) async {
     return _send(
-      () => _dio.post<Map<String, dynamic>>(
+      () => _dio.post<T>(
         path,
         data: body,
         cancelToken: _createDioCancelToken(cancelToken),
@@ -43,13 +43,13 @@ class DioClient implements ApiClient {
   }
 
   @override
-  Future<ApiResponse<Map<String, dynamic>>> put(
+  Future<ApiResponse<T>> put<T>(
     String path, {
     Map<String, dynamic>? body,
     RequestCancelToken? cancelToken,
   }) async {
     return _send(
-      () => _dio.put<Map<String, dynamic>>(
+      () => _dio.put<T>(
         path,
         data: body,
         cancelToken: _createDioCancelToken(cancelToken),
@@ -58,13 +58,13 @@ class DioClient implements ApiClient {
   }
 
   @override
-  Future<ApiResponse<Map<String, dynamic>>> patch(
+  Future<ApiResponse<T>> patch<T>(
     String path, {
     Map<String, dynamic>? body,
     RequestCancelToken? cancelToken,
   }) async {
     return _send(
-      () => _dio.patch<Map<String, dynamic>>(
+      () => _dio.patch<T>(
         path,
         data: body,
         cancelToken: _createDioCancelToken(cancelToken),
@@ -73,13 +73,13 @@ class DioClient implements ApiClient {
   }
 
   @override
-  Future<ApiResponse<Map<String, dynamic>>> delete(
+  Future<ApiResponse<T>> delete<T>(
     String path, {
     Map<String, dynamic>? body,
     RequestCancelToken? cancelToken,
   }) async {
     return _send(
-      () => _dio.delete<Map<String, dynamic>>(
+      () => _dio.delete<T>(
         path,
         data: body,
         cancelToken: _createDioCancelToken(cancelToken),
@@ -87,8 +87,8 @@ class DioClient implements ApiClient {
     );
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> _send(
-    Future<Response<Map<String, dynamic>>> Function() request,
+  Future<ApiResponse<T>> _send<T>(
+    Future<Response<T>> Function() request,
   ) async {
     try {
       final response = await request();

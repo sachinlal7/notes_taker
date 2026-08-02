@@ -20,6 +20,7 @@ import '../core/storage/local_storage.dart';
 import '../core/storage/secure_storage.dart';
 import '../core/storage/storage_keys.dart';
 import '../core/auth/token_manager.dart';
+import '../features/notes/data/notes_repository.dart';
 import 'app_config.dart';
 import 'app_router.dart';
 
@@ -64,6 +65,7 @@ Future<void> initializeDependencies({required AppConfig config}) async {
     })
     ..registerLazySingleton<NetworkInfo>(() => InternetConnectionNetworkInfo())
     ..registerLazySingleton<ApiClient>(() => DioClient(sl(), sl()))
+    ..registerLazySingleton<NotesRepository>(() => NotesRepository(sl()))
     ..registerLazySingleton<PermissionService>(
       () => const PermissionHandlerService(),
     )
@@ -81,9 +83,9 @@ Future<void> initializeDependencies({required AppConfig config}) async {
         onUnauthorized: _handleUnauthorizedSession,
       ),
     );
-    // ..registerLazySingleton<NotificationService>(
-    //   () => FirebaseNotificationService(permissionService: sl(), logger: sl()),
-    // );
+  // ..registerLazySingleton<NotificationService>(
+  //   () => FirebaseNotificationService(permissionService: sl(), logger: sl()),
+  // );
 
   // await sl<NotificationService>().initialize(); // Firebase not configured yet
 }

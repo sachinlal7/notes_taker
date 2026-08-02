@@ -52,51 +52,36 @@ class NotesState extends Equatable {
 }
 
 class NotesCubit extends Cubit<NotesState> {
-  NotesCubit()
-    : super(
-        NotesState(
-          isOffline: true,
-          notes: [
-            Note(
-              id: 'meeting',
-              title: 'Project Feedback Loop',
-              body:
-                  'The client requested a complete overhaul of the navigation structure. We need to resolve the local versus server version mismatch immediately.',
-              serverBody:
-                  'The client requested updates to navigation. Keep the existing structure and improve the sync controls.',
-              updatedAt: DateTime.now().subtract(const Duration(days: 1)),
-              status: SyncStatus.conflict,
-              version: 7,
-            ),
-            Note(
-              id: 'launch',
-              title: 'Grocery List & Meal Prep',
-              body:
-                  'Almond milk, kale, salmon, quinoa. Check the pantry for balsamic vinegar before heading out to the market.',
-              updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
-              status: SyncStatus.pending,
-              version: 5,
-            ),
-            Note(
-              id: 'welcome',
-              title: 'Architecture Review Notes',
-              body:
-                  'Database schema for the offline-first sync engine looks solid. We decided to use a vector clock approach for conflict resolution.',
-              updatedAt: DateTime.now().subtract(const Duration(minutes: 8)),
-              status: SyncStatus.synced,
-              version: 3,
-            ),
-            Note(
-              id: 'dream',
-              title: 'Dream Journal: Ocean Sky',
-              body:
-                  'I was walking on water, but the sky was also water. Fish were swimming past my ears and everything was a deep violet color.',
-              updatedAt: DateTime.now().subtract(const Duration(days: 2)),
-              status: SyncStatus.synced,
-            ),
-          ],
-        ),
-      );
+  NotesCubit({
+    Future<Note> Function({required String title, required String body})?
+    createNote,
+    Future<Note> Function({
+      required String id,
+      required String title,
+      required String body,
+    })?
+    updateNote,
+  }) : _createNote = createNote,
+       _updateNote = updateNote,
+       super(const NotesState(notes: []));
+
+  final Future<Note> Function({required String title, required String body})?
+  _createNote;
+  final Future<Note> Function({
+    required String id,
+    required String title,
+    required String body,
+  })?
+  _updateNote;
+
+  Future<void> load(Future<List<Note>> Function() getAllNotes) async {
+    try {
+      final notes = await getAllNotes();
+      if (!isClosed) emit(state.copyWith(notes: notes, isOffline: false));
+    } on Object {
+      if (!isClosed) emit(state.copyWith(isOffline: true));
+    }
+  }
 
   Note? byId(String id) {
     for (final note in state.notes) {
@@ -105,40 +90,92 @@ class NotesCubit extends Cubit<NotesState> {
     return null;
   }
 
+  Future<void> create({required String title, required String body}) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanBody.isEmpty) return;
+
+    if (!state.isOffline && _createNote != null) {
+      try {
+        final note = await _createNote(title: cleanTitle, body: cleanBody);
+        if (!isClosed) emit(state.copyWith(notes: [note, ...state.notes]));
+        return;
+      } on Object {
+        if (!isClosed) emit(state.copyWith(isOffline: true));
+      }
+    }
+
+    if (!isClosed) {
+      final now = DateTime.now();
+      emit(
+        state.copyWith(
+          notes: [
+            Note(
+              id: now.microsecondsSinceEpoch.toString(),
+              title: cleanTitle,
+              body: cleanBody,
+              updatedAt: now,
+              status: SyncStatus.pending,
+            ),
+            ...state.notes,
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> update({
+    required String id,
+    required String title,
+    required String body,
+  }) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanBody.isEmpty) return;
+
+    if (!state.isOffline && _updateNote != null) {
+      try {
+        final note = await _updateNote(
+          id: id,
+          title: cleanTitle,
+          body: cleanBody,
+        );
+        if (!isClosed) _replace(note);
+        return;
+      } on Object {
+        if (!isClosed) emit(state.copyWith(isOffline: true));
+      }
+    }
+
+    if (!isClosed) save(id: id, title: cleanTitle, body: cleanBody);
+  }
+
   void save({String? id, required String title, required String body}) {
     final cleanTitle = title.trim();
     final cleanBody = body.trim();
     if (cleanTitle.isEmpty || cleanBody.isEmpty) return;
 
     final now = DateTime.now();
-    if (id == null) {
-      final note = Note(
-        id: now.microsecondsSinceEpoch.toString(),
+    if (id == null) return;
+    final current = byId(id);
+    if (current == null) return;
+    _replace(
+      current.copyWith(
         title: cleanTitle,
         body: cleanBody,
         updatedAt: now,
         status: state.isOffline ? SyncStatus.pending : SyncStatus.synced,
-      );
-      emit(state.copyWith(notes: [note, ...state.notes]));
-      return;
-    }
+        version: current.version + 1,
+      ),
+    );
+  }
 
+  void _replace(Note updated) {
     emit(
       state.copyWith(
         notes: [
           for (final note in state.notes)
-            if (note.id == id)
-              note.copyWith(
-                title: cleanTitle,
-                body: cleanBody,
-                updatedAt: now,
-                status: state.isOffline
-                    ? SyncStatus.pending
-                    : SyncStatus.synced,
-                version: note.version + 1,
-              )
-            else
-              note,
+            if (note.id == updated.id) updated else note,
         ],
       ),
     );

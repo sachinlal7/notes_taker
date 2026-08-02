@@ -39,7 +39,7 @@ class AppSnackbar {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.fixed,
           duration: const Duration(seconds: 2),
         ),
       );

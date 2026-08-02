@@ -18,7 +18,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('New note'), findsOneWidget);
-    expect(find.text('Project Feedback Loop'), findsOneWidget);
+    expect(find.text('No notes yet'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(find.text('Press back again to exit.'), findsOneWidget);
   });
 
   testWidgets('creates a note from the home screen', (

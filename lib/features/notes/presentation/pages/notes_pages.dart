@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -8,125 +9,158 @@ import '../../domain/entities/note.dart';
 import '../cubit/notes_cubit.dart';
 import '../widgets/note_widgets.dart';
 
-class NotesHomePage extends StatelessWidget {
+class NotesHomePage extends StatefulWidget {
   const NotesHomePage({super.key});
 
   @override
+  State<NotesHomePage> createState() => _NotesHomePageState();
+}
+
+class _NotesHomePageState extends State<NotesHomePage> {
+  DateTime? _lastBackPress;
+
+  void _handleBack() {
+    final now = DateTime.now();
+    if (_lastBackPress != null &&
+        now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
+    }
+
+    _lastBackPress = now;
+    AppSnackbar.showInfo(context, 'Press back again to exit.');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocBuilder<NotesCubit, NotesState>(
-      builder: (context, state) {
-        return Scaffold(
-          drawer: const _NotesDrawer(),
-          appBar: AppBar(
-            toolbarHeight: 64,
-            leading: Builder(
-              builder: (context) => IconButton(
-                tooltip: 'Open menu',
-                onPressed: Scaffold.of(context).openDrawer,
-                icon: const Icon(Icons.menu_rounded),
-              ),
-            ),
-            title: Text(
-              'Offline Notes',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Search notes',
-                onPressed: () => context.push('/notes/search'),
-                icon: const Icon(Icons.search_rounded),
-              ),
-              IconButton(
-                tooltip: 'Sync notes',
-                onPressed: () => context.push('/notes/sync'),
-                icon: const Icon(Icons.sync_rounded),
-              ),
-              IconButton(
-                tooltip: 'More options',
-                onPressed: () => context.push('/settings'),
-                icon: const Icon(Icons.more_vert_rounded),
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: state.isOffline
-                    ? Padding(
-                        key: const ValueKey('offline'),
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                        child: OfflineBanner(
-                          onDismiss: () =>
-                              context.read<NotesCubit>().setOffline(false),
-                        ),
-                      )
-                    : const SizedBox.shrink(key: ValueKey('online')),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 18, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Recent Notes',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text('Sort By Date'),
-                    ),
-                  ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: BlocBuilder<NotesCubit, NotesState>(
+        builder: (context, state) {
+          return Scaffold(
+            drawer: const _NotesDrawer(),
+            appBar: AppBar(
+              toolbarHeight: 64,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'Open menu',
+                  onPressed: Scaffold.of(context).openDrawer,
+                  icon: const Icon(Icons.menu_rounded),
                 ),
               ),
-              Expanded(
-                child: state.notes.isEmpty
-                    ? NotesEmptyState(
-                        title: 'No notes yet',
-                        message:
-                            'Capture your first thought and keep it available offline.',
-                        icon: Icons.note_add_outlined,
-                        actionLabel: 'Create note',
-                        onAction: () => context.push('/notes/new'),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => context.read<NotesCubit>().sync(),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                          itemCount: state.notes.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final note = state.notes[index];
-                            return AnimatedListEntry(
-                              key: ValueKey(note.id),
-                              index: index,
-                              child: NoteCard(
-                                note: note,
-                                onTap: () => note.status == SyncStatus.conflict
-                                    ? context.push('/notes/${note.id}/conflict')
-                                    : context.push('/notes/${note.id}'),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+              title: Text(
+                'Offline Notes',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ],
-          ),
-          bottomNavigationBar: const OfflineBottomNavigation(selectedIndex: 0),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => context.push('/notes/new'),
-            tooltip: 'New note',
-            child: const Icon(Icons.add_rounded, size: 32),
-          ),
-        );
-      },
+              actions: [
+                IconButton(
+                  tooltip: 'Search notes',
+                  onPressed: () => context.push('/notes/search'),
+                  icon: const Icon(Icons.search_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Sync notes',
+                  onPressed: () => context.push('/notes/sync'),
+                  icon: const Icon(Icons.sync_rounded),
+                ),
+                IconButton(
+                  tooltip: 'More options',
+                  onPressed: () => context.push('/settings'),
+                  icon: const Icon(Icons.more_vert_rounded),
+                ),
+              ],
+            ),
+            body: Column(
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: state.isOffline
+                      ? Padding(
+                          key: const ValueKey('offline'),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                          child: OfflineBanner(
+                            onDismiss: () =>
+                                context.read<NotesCubit>().setOffline(false),
+                          ),
+                        )
+                      : const SizedBox.shrink(key: ValueKey('online')),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 18, 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Recent Notes',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                      TextButton(
+                        onPressed: () {},
+                        child: const Text('Sort By Date'),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: state.notes.isEmpty
+                      ? NotesEmptyState(
+                          title: 'No notes yet',
+                          message:
+                              'Capture your first thought and keep it available offline.',
+                          icon: Icons.note_add_outlined,
+                          actionLabel: 'Create note',
+                          onAction: () => context.push('/notes/new'),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => context.read<NotesCubit>().sync(),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            itemCount: state.notes.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final note = state.notes[index];
+                              return AnimatedListEntry(
+                                key: ValueKey(note.id),
+                                index: index,
+                                child: NoteCard(
+                                  note: note,
+                                  onTap: () =>
+                                      note.status == SyncStatus.conflict
+                                      ? context.push(
+                                          '/notes/${note.id}/conflict',
+                                        )
+                                      : context.push('/notes/${note.id}'),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                ),
+              ],
+            ),
+            bottomNavigationBar: const OfflineBottomNavigation(
+              selectedIndex: 0,
+            ),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () => context.push('/notes/new'),
+              tooltip: 'New note',
+              child: const Icon(Icons.add_rounded, size: 32),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -185,6 +219,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
   bool _dirty = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -237,13 +272,23 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    context.read<NotesCubit>().save(
-      id: widget.noteId,
-      title: _titleController.text,
-      body: _bodyController.text,
-    );
+    setState(() => _saving = true);
+    final cubit = context.read<NotesCubit>();
+    if (widget.noteId == null) {
+      await cubit.create(
+        title: _titleController.text,
+        body: _bodyController.text,
+      );
+    } else {
+      await cubit.update(
+        id: widget.noteId!,
+        title: _titleController.text,
+        body: _bodyController.text,
+      );
+    }
+    if (!mounted) return;
     _dirty = false;
     AppSnackbar.showSuccess(
       context,
@@ -290,7 +335,10 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
               side: BorderSide.none,
             ),
             const SizedBox(width: 8),
-            FilledButton(onPressed: _save, child: const Text('Save')),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: const Text('Save'),
+            ),
             const SizedBox(width: 8),
           ],
         ),
@@ -487,24 +535,6 @@ class NoteDetailsPage extends StatelessWidget {
                       Text(
                         note.title,
                         style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          Chip(
-                            label: Text(
-                              'Engineering',
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                          ),
-                          Chip(
-                            label: Text(
-                              'Sync Strategy',
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 24),
                       Text(
