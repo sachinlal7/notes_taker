@@ -10,6 +10,7 @@ coverage/
 
 # IDE and OS files
 .idea/
+.codex/
 *.iml
 .DS_Store
 
