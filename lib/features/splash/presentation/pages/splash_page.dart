@@ -14,12 +14,18 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashPageState extends State<SplashPage>
+    with SingleTickerProviderStateMixin {
   late final Timer _navigationTimer;
+  late final AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
     _navigationTimer = Timer(
       const Duration(milliseconds: 1800),
       () => context.go(RouteConstants.notes),
@@ -29,6 +35,7 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void dispose() {
     _navigationTimer.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -61,19 +68,30 @@ class _SplashPageState extends State<SplashPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 96,
-                          height: 96,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryContainer,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: .18),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
+                        AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, child) => Transform.scale(
+                            scale: 1 + (_pulseController.value * .05),
+                            child: Container(
+                              width: 96,
+                              height: 96,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryContainer,
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(
+                                      alpha:
+                                          .16 + (_pulseController.value * .12),
+                                    ),
+                                    blurRadius:
+                                        16 + (_pulseController.value * 10),
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
-                            ],
+                              child: child,
+                            ),
                           ),
                           child: const Icon(
                             Icons.description_rounded,
@@ -93,7 +111,7 @@ class _SplashPageState extends State<SplashPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'VERSION 2.4.0',
+                          'VERSION ${AppConstants.appVersion}',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 color: AppColors.outline,
@@ -110,19 +128,6 @@ class _SplashPageState extends State<SplashPage> {
                     ),
                   ),
                 ),
-              ),
-              Text(
-                'Initializing local database...',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TweenAnimationBuilder<double>(
-                duration: const Duration(milliseconds: 1600),
-                tween: Tween(begin: .15, end: 1),
-                builder: (context, value, _) =>
-                    LinearProgressIndicator(value: value),
               ),
             ],
           ),

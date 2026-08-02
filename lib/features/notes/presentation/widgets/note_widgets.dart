@@ -6,9 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/note.dart';
 
 class OfflineBanner extends StatelessWidget {
-  const OfflineBanner({required this.onDismiss, super.key});
-
-  final VoidCallback onDismiss;
+  const OfflineBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +38,6 @@ class OfflineBanner extends StatelessWidget {
                 color: Theme.of(context).colorScheme.outline,
                 fontStyle: FontStyle.italic,
               ),
-            ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              tooltip: 'Dismiss',
-              onPressed: onDismiss,
-              icon: const Icon(Icons.close_rounded, size: 18),
             ),
           ],
         ),

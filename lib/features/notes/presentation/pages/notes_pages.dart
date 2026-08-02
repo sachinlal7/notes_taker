@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/note.dart';
 import '../cubit/notes_cubit.dart';
@@ -52,7 +53,7 @@ class _NotesHomePageState extends State<NotesHomePage> {
                 ),
               ),
               title: Text(
-                'Offline Notes',
+                'Notes',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w700,
@@ -84,10 +85,7 @@ class _NotesHomePageState extends State<NotesHomePage> {
                       ? Padding(
                           key: const ValueKey('offline'),
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                          child: OfflineBanner(
-                            onDismiss: () =>
-                                context.read<NotesCubit>().setOffline(false),
-                          ),
+                          child: const OfflineBanner(),
                         )
                       : const SizedBox.shrink(key: ValueKey('online')),
                 ),
@@ -177,7 +175,7 @@ class _NotesDrawer extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(28, 24, 16, 24),
           child: Text(
-            'Offline Notes',
+            'Notes',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -478,7 +476,7 @@ class NoteDetailsPage extends StatelessWidget {
       appBar: AppBar(
         toolbarHeight: 64,
         title: Text(
-          'Offline Notes',
+          'Notes',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: Theme.of(context).colorScheme.primary,
             fontWeight: FontWeight.w700,
@@ -584,7 +582,8 @@ class NoteDetailsPage extends StatelessWidget {
       ),
     );
     if (delete == true && context.mounted) {
-      context.read<NotesCubit>().delete(noteId);
+      await context.read<NotesCubit>().delete(noteId);
+      if (!context.mounted) return;
       context.go('/notes');
     }
   }
@@ -641,86 +640,88 @@ class _NotesSearchPageState extends State<NotesSearchPage> {
                     note.body.toLowerCase().contains(query),
               )
               .toList();
-    return Scaffold(
-      bottomNavigationBar: const OfflineBottomNavigation(selectedIndex: 1),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: SearchBar(
-                controller: _controller,
-                hintText: 'Search your notes',
-                leading: IconButton(
-                  tooltip: 'Back',
-                  onPressed: context.pop,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-                trailing: [
-                  if (_query.isNotEmpty)
-                    IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: () {
-                        _controller.clear();
-                        setState(() => _query = '');
-                      },
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  IconButton(
-                    tooltip: 'Sync',
-                    onPressed: () => context.push('/notes/sync'),
-                    icon: const Icon(Icons.sync_rounded),
+    return _BackToNotesOnPop(
+      child: Scaffold(
+        bottomNavigationBar: const OfflineBottomNavigation(selectedIndex: 1),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: SearchBar(
+                  controller: _controller,
+                  hintText: 'Search your notes',
+                  leading: IconButton(
+                    tooltip: 'Back',
+                    onPressed: () => context.go('/notes'),
+                    icon: const Icon(Icons.arrow_back_rounded),
                   ),
-                ],
-                onChanged: (value) => setState(() => _query = value),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Chip(
-                  avatar: const Icon(
-                    Icons.circle,
-                    size: 8,
-                    color: Color(0xFF287D49),
-                  ),
-                  label: Text(
-                    'All Synced • Offline Mode',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerLow,
-                ),
-              ),
-            ),
-            Expanded(
-              child: results.isEmpty
-                  ? const NotesEmptyState(
-                      title: 'No results',
-                      message: 'Try a different title or keyword.',
-                      icon: Icons.search_off_rounded,
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: results.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) => NoteCard(
-                        note: results[index],
-                        onTap: () =>
-                            results[index].status == SyncStatus.conflict
-                            ? context.push(
-                                '/notes/${results[index].id}/conflict',
-                              )
-                            : context.push('/notes/${results[index].id}'),
+                  trailing: [
+                    if (_query.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _controller.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
                       ),
+                    IconButton(
+                      tooltip: 'Sync',
+                      onPressed: () => context.push('/notes/sync'),
+                      icon: const Icon(Icons.sync_rounded),
                     ),
-            ),
-          ],
+                  ],
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Chip(
+                    avatar: const Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: Color(0xFF287D49),
+                    ),
+                    label: Text(
+                      '${notes.length} notes • Available offline',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerLow,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: results.isEmpty
+                    ? const NotesEmptyState(
+                        title: 'No results',
+                        message: 'Try a different title or keyword.',
+                        icon: Icons.search_off_rounded,
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                        itemCount: results.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) => NoteCard(
+                          note: results[index],
+                          onTap: () =>
+                              results[index].status == SyncStatus.conflict
+                              ? context.push(
+                                  '/notes/${results[index].id}/conflict',
+                                )
+                              : context.push('/notes/${results[index].id}'),
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -749,7 +750,7 @@ class _SyncProgressPageState extends State<SyncProgressPage> {
       appBar: AppBar(
         toolbarHeight: 64,
         title: Text(
-          'Offline Notes',
+          'Notes',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: Theme.of(context).colorScheme.primary,
             fontWeight: FontWeight.w700,
@@ -998,8 +999,9 @@ class ConflictResolutionPage extends StatelessWidget {
     );
   }
 
-  void _resolve(BuildContext context, String body) {
-    context.read<NotesCubit>().resolveConflict(noteId, body);
+  Future<void> _resolve(BuildContext context, String body) async {
+    await context.read<NotesCubit>().resolveConflict(noteId, body);
+    if (!context.mounted) return;
     AppSnackbar.showSuccess(context, 'Conflict resolved.');
     context.go('/notes/$noteId');
   }
@@ -1096,7 +1098,7 @@ class _MergeNotePageState extends State<MergeNotePage> {
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 if (_controller.text.trim().isEmpty) {
                   AppSnackbar.showError(
                     context,
@@ -1104,10 +1106,11 @@ class _MergeNotePageState extends State<MergeNotePage> {
                   );
                   return;
                 }
-                context.read<NotesCubit>().resolveConflict(
+                await context.read<NotesCubit>().resolveConflict(
                   widget.noteId,
                   _controller.text,
                 );
+                if (!context.mounted) return;
                 context.go('/notes/${widget.noteId}');
               },
               icon: const Icon(Icons.merge_rounded),
@@ -1126,162 +1129,151 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<NotesCubit>().state;
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 64,
-        title: Text(
-          'Offline Notes',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w700,
+    return _BackToNotesOnPop(
+      child: Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 64,
+          title: Text(
+            'Notes',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
+          actions: [
+            IconButton(
+              tooltip: 'Sync',
+              onPressed: () => context.push('/notes/sync'),
+              icon: const Icon(Icons.sync_rounded),
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Sync',
-            onPressed: () => context.push('/notes/sync'),
-            icon: const Icon(Icons.sync_rounded),
-          ),
-        ],
-      ),
-      bottomNavigationBar: const OfflineBottomNavigation(selectedIndex: 2),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          _SettingsSection(
-            title: 'CONNECTIVITY',
-            children: [
-              ListTile(
-                leading: const Icon(Icons.wifi_rounded),
-                title: const Text('Network Status'),
-                subtitle: const Text('Connected to local relay'),
-                trailing: Text(
-                  state.isOffline ? 'Offline' : 'Online',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w700,
+        bottomNavigationBar: const OfflineBottomNavigation(selectedIndex: 2),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            _SettingsSection(
+              title: 'CONNECTIVITY',
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.wifi_rounded),
+                  title: const Text('Network Status'),
+                  subtitle: const Text('Automatic background synchronization'),
+                  trailing: Text(
+                    state.isOffline ? 'Offline' : 'Online',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              SwitchListTile(
-                secondary: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Dark Mode'),
-                subtitle: const Text('Reduces eye strain at night'),
-                value: state.darkMode,
-                onChanged: context.read<NotesCubit>().setDarkMode,
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              SwitchListTile(
-                secondary: const Icon(Icons.cloud_off_outlined),
-                title: const Text('Offline Mode'),
-                subtitle: const Text('Store changes locally'),
-                value: state.isOffline,
-                onChanged: context.read<NotesCubit>().setOffline,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const _SettingsSection(
-            title: 'STORAGE & CACHE',
-            children: [
-              ListTile(
-                leading: Icon(Icons.storage_rounded),
-                title: Text('Database size'),
-                subtitle: Text('Local encrypted SQLite store'),
-                trailing: Text('12 MB'),
-              ),
-              Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: Icon(
-                  Icons.delete_sweep_outlined,
-                  color: Color(0xFFBA1A1A),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                SwitchListTile(
+                  secondary: const Icon(Icons.dark_mode_outlined),
+                  title: const Text('Dark Mode'),
+                  subtitle: const Text('Reduces eye strain at night'),
+                  value: state.darkMode,
+                  onChanged: context.read<NotesCubit>().setDarkMode,
                 ),
-                title: Text(
-                  'Clear Cache',
-                  style: TextStyle(color: Color(0xFFBA1A1A)),
-                ),
-                subtitle: Text('Deletes 4.2 MB of temporary assets'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SettingsSection(
-            title: 'SYNC & DATA',
-            children: [
-              ListTile(
-                leading: const Icon(Icons.cloud_upload_outlined),
-                title: const Text('Pending Sync'),
-                subtitle: Text(
-                  '${state.pendingCount} items waiting for connection',
-                ),
-                trailing: const Icon(
-                  Icons.circle,
-                  size: 8,
-                  color: Color(0xFFBA1A1A),
-                ),
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: Icon(
-                  Icons.sync_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                title: Text(
-                  'Manual Sync Now',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
+              ],
+            ),
+            const SizedBox(height: 24),
+            const _SettingsSection(
+              title: 'STORAGE & CACHE',
+              children: [
+                ListTile(
+                  leading: Icon(Icons.storage_rounded),
+                  title: Text('Database'),
+                  subtitle: Text(
+                    'Notes are stored locally and synchronized automatically',
                   ),
                 ),
-                subtitle: const Text('Force sync with remote server'),
-                onTap: () => context.push('/notes/sync'),
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: const Icon(Icons.grid_view_rounded),
-                title: const Text('UI States Gallery'),
-                subtitle: const Text(
-                  'Loading, empty, error, and feedback states',
+              ],
+            ),
+            const SizedBox(height: 24),
+            _SettingsSection(
+              title: 'SYNC & DATA',
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cloud_upload_outlined),
+                  title: const Text('Pending Sync'),
+                  subtitle: Text(
+                    '${state.pendingCount} items waiting for connection',
+                  ),
+                  trailing: const Icon(
+                    Icons.circle,
+                    size: 8,
+                    color: Color(0xFFBA1A1A),
+                  ),
                 ),
-                onTap: () => context.push('/states'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 40),
-          Column(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(12),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(
+                    Icons.sync_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(
+                    'Manual Sync Now',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  subtitle: const Text('Force sync with remote server'),
+                  onTap: () => context.push('/notes/sync'),
                 ),
-                child: const Icon(
-                  Icons.description_rounded,
-                  color: Colors.white,
+              ],
+            ),
+            const SizedBox(height: 40),
+            Column(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.description_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Offline Notes',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 8),
+                Text(
+                  'Notes',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Chip(
-                label: Text(
-                  'v2.4.0',
-                  style: Theme.of(context).textTheme.labelLarge,
+                const SizedBox(height: 4),
+                Chip(
+                  label: Text(
+                    'v${AppConstants.appVersion}',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _BackToNotesOnPop extends StatelessWidget {
+  const _BackToNotesOnPop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) context.go('/notes');
+    },
+    child: child,
+  );
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -1314,121 +1306,4 @@ class _SettingsSection extends StatelessWidget {
       ],
     );
   }
-}
-
-class StatesGalleryPage extends StatefulWidget {
-  const StatesGalleryPage({super.key});
-
-  @override
-  State<StatesGalleryPage> createState() => _StatesGalleryPageState();
-}
-
-class _StatesGalleryPageState extends State<StatesGalleryPage> {
-  int _selected = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    const states = [
-      'Loading',
-      'No notes',
-      'No results',
-      'No conflicts',
-      'Server error',
-    ];
-    return Scaffold(
-      appBar: AppBar(title: const Text('UI states')),
-      body: Column(
-        children: [
-          SizedBox(
-            height: 64,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              scrollDirection: Axis.horizontal,
-              itemCount: states.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) => ChoiceChip(
-                label: Text(states[index]),
-                selected: _selected == index,
-                onSelected: (_) => setState(() => _selected = index),
-              ),
-            ),
-          ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: switch (_selected) {
-                0 => const _LoadingState(key: ValueKey(0)),
-                1 => const NotesEmptyState(
-                  key: ValueKey(1),
-                  title: 'No notes yet',
-                  message: 'Create a note to get started.',
-                  icon: Icons.note_add_outlined,
-                ),
-                2 => const NotesEmptyState(
-                  key: ValueKey(2),
-                  title: 'No search results',
-                  message: 'Try another keyword.',
-                  icon: Icons.search_off_rounded,
-                ),
-                3 => const NotesEmptyState(
-                  key: ValueKey(3),
-                  title: 'No conflicts',
-                  message: 'Everything is up to date.',
-                  icon: Icons.task_alt_rounded,
-                ),
-                _ => NotesEmptyState(
-                  key: const ValueKey(4),
-                  title: 'Server unavailable',
-                  message:
-                      'We could not reach the server. Your local notes are safe.',
-                  icon: Icons.cloud_off_rounded,
-                  actionLabel: 'Retry',
-                  onAction: () =>
-                      AppSnackbar.showInfo(context, 'Trying again…'),
-                ),
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadingState extends StatefulWidget {
-  const _LoadingState({super.key});
-
-  @override
-  State<_LoadingState> createState() => _LoadingStateState();
-}
-
-class _LoadingStateState extends State<_LoadingState>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => ListView.builder(
-    padding: const EdgeInsets.all(16),
-    itemCount: 4,
-    itemBuilder: (context, index) => FadeTransition(
-      opacity: Tween(begin: .35, end: .8).animate(_controller),
-      child: Container(
-        height: 132,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-    ),
-  );
 }

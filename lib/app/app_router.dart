@@ -59,10 +59,6 @@ class AppRouter {
         path: RouteConstants.settings,
         pageBuilder: (_, state) => _page(state, const SettingsPage()),
       ),
-      GoRoute(
-        path: RouteConstants.states,
-        pageBuilder: (_, state) => _page(state, const StatesGalleryPage()),
-      ),
     ],
   );
 

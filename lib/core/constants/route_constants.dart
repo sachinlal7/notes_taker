@@ -8,5 +8,4 @@ class RouteConstants {
   static const String searchNotes = '/notes/search';
   static const String sync = '/notes/sync';
   static const String settings = '/settings';
-  static const String states = '/states';
 }

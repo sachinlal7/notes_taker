@@ -117,12 +117,14 @@ class AppTheme {
           letterSpacing: .25,
         ),
         labelLarge: GoogleFonts.jetBrainsMono(
+          color: colors.onSurface,
           fontSize: 12,
           height: 16 / 12,
           fontWeight: FontWeight.w500,
           letterSpacing: .1,
         ),
         labelMedium: GoogleFonts.jetBrainsMono(
+          color: colors.onSurfaceVariant,
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),

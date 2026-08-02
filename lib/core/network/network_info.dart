@@ -2,6 +2,8 @@ import 'package:internet_connection_checker_plus/internet_connection_checker_plu
 
 abstract interface class NetworkInfo {
   Future<bool> get isConnected;
+
+  Stream<bool> get onStatusChange;
 }
 
 class InternetConnectionNetworkInfo implements NetworkInfo {
@@ -12,4 +14,9 @@ class InternetConnectionNetworkInfo implements NetworkInfo {
 
   @override
   Future<bool> get isConnected => _internetConnection.hasInternetAccess;
+
+  @override
+  Stream<bool> get onStatusChange => _internetConnection.onStatusChange.map(
+    (status) => status == InternetStatus.connected,
+  );
 }

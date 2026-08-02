@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../data/notes_repository.dart';
 import '../../domain/entities/note.dart';
 
 enum SyncPhase { idle, uploading, downloading, resolving, complete, failed }
@@ -52,34 +55,28 @@ class NotesState extends Equatable {
 }
 
 class NotesCubit extends Cubit<NotesState> {
-  NotesCubit({
-    Future<Note> Function({required String title, required String body})?
-    createNote,
-    Future<Note> Function({
-      required String id,
-      required String title,
-      required String body,
-    })?
-    updateNote,
-  }) : _createNote = createNote,
-       _updateNote = updateNote,
-       super(const NotesState(notes: []));
+  NotesCubit(this._repository) : super(const NotesState(notes: []));
 
-  final Future<Note> Function({required String title, required String body})?
-  _createNote;
-  final Future<Note> Function({
-    required String id,
-    required String title,
-    required String body,
-  })?
-  _updateNote;
+  final NotesRepository _repository;
+  StreamSubscription<List<Note>>? _notesSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
 
-  Future<void> load(Future<List<Note>> Function() getAllNotes) async {
-    try {
-      final notes = await getAllNotes();
-      if (!isClosed) emit(state.copyWith(notes: notes, isOffline: false));
-    } on Object {
-      if (!isClosed) emit(state.copyWith(isOffline: true));
+  Future<void> start() async {
+    _notesSubscription = _repository.watchNotes().listen(
+      (notes) {
+        if (!isClosed) emit(state.copyWith(notes: notes));
+      },
+      onError: (_) {
+        if (!isClosed) emit(state.copyWith(syncPhase: SyncPhase.failed));
+      },
+    );
+    _connectionSubscription = _repository.connectionChanges.listen((online) {
+      if (!isClosed) emit(state.copyWith(isOffline: !online));
+    });
+
+    await _repository.start();
+    if (!isClosed) {
+      emit(state.copyWith(isOffline: !_repository.isOnline));
     }
   }
 
@@ -95,33 +92,7 @@ class NotesCubit extends Cubit<NotesState> {
     final cleanBody = body.trim();
     if (cleanTitle.isEmpty || cleanBody.isEmpty) return;
 
-    if (!state.isOffline && _createNote != null) {
-      try {
-        final note = await _createNote(title: cleanTitle, body: cleanBody);
-        if (!isClosed) emit(state.copyWith(notes: [note, ...state.notes]));
-        return;
-      } on Object {
-        if (!isClosed) emit(state.copyWith(isOffline: true));
-      }
-    }
-
-    if (!isClosed) {
-      final now = DateTime.now();
-      emit(
-        state.copyWith(
-          notes: [
-            Note(
-              id: now.microsecondsSinceEpoch.toString(),
-              title: cleanTitle,
-              body: cleanBody,
-              updatedAt: now,
-              status: SyncStatus.pending,
-            ),
-            ...state.notes,
-          ],
-        ),
-      );
-    }
+    await _repository.create(title: cleanTitle, body: cleanBody);
   }
 
   Future<void> update({
@@ -133,70 +104,17 @@ class NotesCubit extends Cubit<NotesState> {
     final cleanBody = body.trim();
     if (cleanTitle.isEmpty || cleanBody.isEmpty) return;
 
-    if (!state.isOffline && _updateNote != null) {
-      try {
-        final note = await _updateNote(
-          id: id,
-          title: cleanTitle,
-          body: cleanBody,
-        );
-        if (!isClosed) _replace(note);
-        return;
-      } on Object {
-        if (!isClosed) emit(state.copyWith(isOffline: true));
-      }
-    }
-
-    if (!isClosed) save(id: id, title: cleanTitle, body: cleanBody);
+    await _repository.update(id: id, title: cleanTitle, body: cleanBody);
   }
 
-  void save({String? id, required String title, required String body}) {
-    final cleanTitle = title.trim();
-    final cleanBody = body.trim();
-    if (cleanTitle.isEmpty || cleanBody.isEmpty) return;
-
-    final now = DateTime.now();
-    if (id == null) return;
-    final current = byId(id);
-    if (current == null) return;
-    _replace(
-      current.copyWith(
-        title: cleanTitle,
-        body: cleanBody,
-        updatedAt: now,
-        status: state.isOffline ? SyncStatus.pending : SyncStatus.synced,
-        version: current.version + 1,
-      ),
-    );
-  }
-
-  void _replace(Note updated) {
-    emit(
-      state.copyWith(
-        notes: [
-          for (final note in state.notes)
-            if (note.id == updated.id) updated else note,
-        ],
-      ),
-    );
-  }
-
-  void delete(String id) {
-    emit(
-      state.copyWith(
-        notes: state.notes.where((note) => note.id != id).toList(),
-      ),
-    );
-  }
-
-  void setOffline(bool value) => emit(state.copyWith(isOffline: value));
+  Future<void> delete(String id) => _repository.delete(id);
 
   void setDarkMode(bool value) => emit(state.copyWith(darkMode: value));
 
-  void resolveConflict(String id, String body) {
+  Future<void> resolveConflict(String id, String body) async {
     final note = byId(id);
     if (note == null) return;
-    save(id: id, title: note.title, body: body);
+    await update(id: id, title: note.title, body: body);
   }
 
   Future<void> sync() async {
@@ -212,26 +130,23 @@ class NotesCubit extends Cubit<NotesState> {
       return;
     }
 
-    for (final step in const [
-      (SyncPhase.uploading, .25),
-      (SyncPhase.downloading, .55),
-      (SyncPhase.resolving, .82),
-    ]) {
-      emit(state.copyWith(syncPhase: step.$1, syncProgress: step.$2));
-      await Future<void>.delayed(const Duration(milliseconds: 450));
-    }
+    emit(state.copyWith(syncPhase: SyncPhase.uploading, syncProgress: .25));
+    final success = await _repository.sync();
+    if (isClosed) return;
+
     emit(
       state.copyWith(
-        notes: [
-          for (final note in state.notes)
-            if (note.status == SyncStatus.pending)
-              note.copyWith(status: SyncStatus.synced)
-            else
-              note,
-        ],
-        syncPhase: SyncPhase.complete,
-        syncProgress: 1,
+        syncPhase: success ? SyncPhase.complete : SyncPhase.failed,
+        syncProgress: success ? 1 : 0,
       ),
     );
+  }
+
+  @override
+  Future<void> close() async {
+    await _notesSubscription?.cancel();
+    await _connectionSubscription?.cancel();
+    await _repository.stop();
+    return super.close();
   }
 }

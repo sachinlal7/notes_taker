@@ -9,26 +9,16 @@ import 'app_router.dart';
 import 'injection_container.dart';
 
 class NotesTakerApp extends StatelessWidget {
-  const NotesTakerApp({required this.config, super.key});
+  const NotesTakerApp({required this.config, this.notesRepository, super.key});
 
   final AppConfig config;
+  final NotesRepository? notesRepository;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) {
-        final repository = sl.isRegistered<NotesRepository>()
-            ? sl<NotesRepository>()
-            : null;
-        final cubit = NotesCubit(
-          createNote: repository?.create,
-          updateNote: repository?.update,
-        );
-        if (repository != null) {
-          cubit.load(repository.getAll);
-        }
-        return cubit;
-      },
+      create: (_) =>
+          NotesCubit(notesRepository ?? sl<NotesRepository>())..start(),
       child: BlocBuilder<NotesCubit, NotesState>(
         buildWhen: (previous, current) => previous.darkMode != current.darkMode,
         builder: (context, state) => MaterialApp.router(

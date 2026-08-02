@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
+import 'package:isar_community/isar.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/api_constants.dart';
@@ -21,18 +23,33 @@ import '../core/storage/secure_storage.dart';
 import '../core/storage/storage_keys.dart';
 import '../core/auth/token_manager.dart';
 import '../features/notes/data/notes_repository.dart';
+import '../features/notes/data/note_record.dart';
 import 'app_config.dart';
 import 'app_router.dart';
 
 final sl = GetIt.instance;
 
-Future<void> initializeDependencies({required AppConfig config}) async {
+Future<void> initializeDependencies({
+  required AppConfig config,
+  Future<void> Function()? scheduleBackgroundSync,
+}) async {
+  if (sl.isRegistered<AppConfig>()) return;
+
   final sharedPreferences = await SharedPreferences.getInstance();
+  final documentsDirectory = await getApplicationDocumentsDirectory();
+  final isar =
+      Isar.getInstance('notes') ??
+      await Isar.open(
+        [NoteRecordSchema],
+        directory: documentsDirectory.path,
+        name: 'notes',
+      );
 
   sl
     ..registerSingleton<AppConfig>(config)
     ..registerLazySingleton<Logger>(() => Logger(enabled: config.enableLogging))
     ..registerLazySingleton<SharedPreferences>(() => sharedPreferences)
+    ..registerSingleton<Isar>(isar)
     ..registerLazySingleton<FlutterSecureStorage>(
       () => const FlutterSecureStorage(),
     )
@@ -65,7 +82,14 @@ Future<void> initializeDependencies({required AppConfig config}) async {
     })
     ..registerLazySingleton<NetworkInfo>(() => InternetConnectionNetworkInfo())
     ..registerLazySingleton<ApiClient>(() => DioClient(sl(), sl()))
-    ..registerLazySingleton<NotesRepository>(() => NotesRepository(sl()))
+    ..registerLazySingleton<NotesRepository>(
+      () => NotesRepository(
+        sl(),
+        sl(),
+        sl(),
+        scheduleBackgroundSync: scheduleBackgroundSync,
+      ),
+    )
     ..registerLazySingleton<PermissionService>(
       () => const PermissionHandlerService(),
     )
@@ -88,6 +112,14 @@ Future<void> initializeDependencies({required AppConfig config}) async {
   // );
 
   // await sl<NotificationService>().initialize(); // Firebase not configured yet
+}
+
+Future<void> disposeDependencies() async {
+  if (sl.isRegistered<NotesRepository>()) {
+    await sl<NotesRepository>().stop();
+  }
+  if (sl.isRegistered<Isar>()) await sl<Isar>().close();
+  await sl.reset();
 }
 
 Future<void> _handleUnauthorizedSession() async {
