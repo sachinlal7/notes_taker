@@ -21,8 +21,8 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
     _navigationTimer = Timer(
-      const Duration(seconds: 3),
-      () => context.go(RouteConstants.login),
+      const Duration(milliseconds: 1800),
+      () => context.go(RouteConstants.notes),
     );
   }
 
@@ -35,56 +35,96 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, Color(0xFF60A5FA)],
-          ),
-        ),
-        child: SizedBox.expand(
-          child: SafeArea(
-            child: TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 1200),
-              curve: Curves.easeOutCubic,
-              tween: Tween(begin: 0, end: 1),
-              builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, 28 * (1 - value)),
-                    child: Transform.scale(
-                      scale: 0.85 + (0.15 * value),
-                      child: child,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 64, 16, 40),
+          child: Column(
+            children: [
+              Expanded(
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween(begin: 0, end: 1),
+                  builder: (context, value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(0, 28 * (1 - value)),
+                        child: Transform.scale(
+                          scale: 0.85 + (0.15 * value),
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryContainer,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: .18),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.description_rounded,
+                            color: AppColors.onPrimary,
+                            size: 56,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          AppConstants.appName,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -.4,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'VERSION 2.4.0',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: AppColors.outline,
+                                letterSpacing: 1.5,
+                              ),
+                        ),
+                        const SizedBox(height: 32),
+                        const SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: CircularProgressIndicator(strokeWidth: 4),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.note_alt_rounded, color: Colors.white, size: 88),
-                    SizedBox(height: 20),
-                    Text(
-                      AppConstants.appName,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Your notes, always with you',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-                  ],
                 ),
               ),
-            ),
+              Text(
+                'Initializing local database...',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 1600),
+                tween: Tween(begin: .15, end: 1),
+                builder: (context, value, _) =>
+                    LinearProgressIndicator(value: value),
+              ),
+            ],
           ),
         ),
       ),
